@@ -1,12 +1,15 @@
 package com.qortmdcks.springboot3_jwt_security.auth;
 
 import com.qortmdcks.springboot3_jwt_security.config.JwtService;
+import com.qortmdcks.springboot3_jwt_security.token.Token;
 import com.qortmdcks.springboot3_jwt_security.token.TokenRepository;
+import com.qortmdcks.springboot3_jwt_security.token.TokenType;
 import com.qortmdcks.springboot3_jwt_security.user.User;
 import com.qortmdcks.springboot3_jwt_security.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -36,6 +39,44 @@ public class AuthService {
     }
 
     public AuthResponse login(LoginRequest request){
-        return null;
+        authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(
+                        request.getEmail(),
+                        request.getPassword()
+                )
+        );
+
+        var user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow();
+        var jwtToken = jwtService.generateToken(user);
+        var refreshToken = jwtService.genererateRefreshToken(user);
+        revokeAllUserTokens(user);
+        savedUserToken(user, jwtToken);
+        return  AuthResponse.builder()
+                .accessToken(jwtToken)
+                .refreshToken(refreshToken)
+                .build();
+
+    }
+
+    private void savedUserToken(User user, String jwtToken){
+        var token = Token.builder()
+                .user(user)
+                .token(jwtToken)
+                .tokenType(TokenType.BEARER)
+                .expired(false)
+                .revoked(false)
+                .build();
+        tokenRepository.save(token);
+    }
+
+    private void revokeAllUserTokens(User user){
+        var validUserTokens = tokenRepository.findAllValidTokenByUser(user.getId());
+        if (validUserTokens.isEmpty()) return;
+        validUserTokens.forEach(token -> {
+            token.setExpired(true);
+            token.setRevoked(true);
+        });
+        tokenRepository.saveAll(validUserTokens);
     }
 }
