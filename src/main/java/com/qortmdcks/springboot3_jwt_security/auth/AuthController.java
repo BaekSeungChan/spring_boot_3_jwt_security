@@ -16,8 +16,8 @@ public class AuthController {
 
     // 회원가입 API
     @PostMapping("/signup")
-    public ResponseEntity<AuthResponse> signupUser(@Valid @RequestBody RegisterRequest request){
-        return ResponseEntity.ok(authService.register(request));
+    public ResponseEntity<?> signupUser(@Valid @RequestBody RegisterRequest request){
+        return authService.register(request);
     }
 
     // 로그인 API
